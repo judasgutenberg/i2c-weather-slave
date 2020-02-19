@@ -1,4 +1,4 @@
-/*  Judas Gutenberg, September 6 2015
+/*  Judas Gutenberg (aka Gus Mueller), February 18, 2020
  * compiles data on a small Arduino (I use a Mini Pro at 8MHz) to be read by a
  * Raspberry Pi over I2C
  * based on the Sparkfun Weather Shield example
