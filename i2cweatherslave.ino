@@ -145,7 +145,7 @@ void requestEvent(){
     smallestWindIRQDelta = highLong;
     Wire.write("\t");
     Wire.write("\t");
-  } else if(readMode == 5) { //clear the recent downpour storage
+  } else if(readMode == 6) { //clear the recent downpour storage
     smallestRainIRQDelta = highLong;
     Wire.write("\t");
     Wire.write("\t");
