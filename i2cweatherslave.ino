@@ -1,4 +1,4 @@
-/*  Judas Gutenberg, September 6 2015
+/* Judas Gutenberg, Feb 19 2020
  * compiles data on a small Arduino (I use a Mini Pro at 8MHz) to be read by a
  * Raspberry Pi over I2C
  * based on the Sparkfun Weather Shield example
@@ -8,7 +8,6 @@
 #define I2C_SLAVE_ADDR 20
 #define INTERRUPT_OUT 0
  
-
 // digital I/O pins
 const byte WSPEED = 3;
 const byte RAIN = 2;
@@ -16,14 +15,11 @@ const byte STAT1 = 7;
 const byte STAT2 = 8;
 
 // analog I/O pins
-const byte REFERENCE_3V3 = A3;
-const byte LIGHT = A1;
-const byte BATT = A2;
 const byte WDIR = A0;
 
-
-//Global Variables
-//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+//////////////////////////////////////////////////
+//globals 
+//////////////////////////////////////////////////
 long lastSecond; //The millis counter to see when a second rolls by
 byte seconds; //When it hits 60, increase the current minute
 byte seconds_2m; //Keeps track of the "wind speed/dir avg" over last 2 minutes array of data
@@ -40,18 +36,13 @@ volatile long smallestRainIRQDelta = highLong;
 int dailyRain = 0;
 int rainCupThousandths = 11;
  
-
 volatile long lastWindIRQ = 0;
 volatile long previousWindIRQ = 0;
 volatile byte windClicks = 0;
 volatile long smallestWindIRQDelta = highLong;
 
 volatile byte readMode = 0; //different readModes happen
- 
- 
- 
- 
-char lastKey;
+
 
 void setup(){
   Wire.begin(I2C_SLAVE_ADDR);
@@ -69,21 +60,19 @@ void setup(){
   pinMode(WSPEED, INPUT_PULLUP); // input from wind meters windspeed sensor
   pinMode(RAIN, INPUT_PULLUP); // input from wind meters rain gauge sensor
 
-  pinMode(REFERENCE_3V3, INPUT);
-  pinMode(LIGHT, INPUT);
+ 
 
   seconds = 0;
   lastSecond = millis();
 
   // attach external interrupt pins to IRQ functions
-  attachInterrupt(0, rainIRQ, FALLING);
-  attachInterrupt(1, wspeedIRQ, FALLING);
+  attachInterrupt(digitalPinToInterrupt(2), rainIRQ, FALLING);
+  attachInterrupt(digitalPinToInterrupt(3), wspeedIRQ, FALLING);
   // turn on interrupts
   interrupts();
 }
 
-void loop()
-{
+void loop(){
   Serial.print(millis());
   Serial.print("\t");
   Serial.print(windClicks);
@@ -108,8 +97,7 @@ void loop()
 //send a byte to the I2C master.  
 //on the ATTiny, the the master calls this x times, not just once as I'd originally thought
 //but in the true Wire library it seems you can send whole arrays, which is all that matters here
-void requestEvent()
-{
+void requestEvent(){
   //the usual data dump
   if(readMode == 0) {
     writeWireLong(millis());
@@ -166,8 +154,7 @@ void requestEvent()
   }
 }
 
-void receieveEvent()
-{
+void receieveEvent() {
   Serial.println("receive event");
   byte byteCount = 0;
   while(0 < Wire.available()) // loop through all but the last
@@ -224,15 +211,12 @@ void writeWireInt(int val) {
   Wire.write(buffer, 2);
 }
  
-
-
 //////////////////////////////////////////////////
 //interrupt routines 
 //////////////////////////////////////////////////
-void rainIRQ()
+void rainIRQ() {
 // Count rain gauge bucket tips as they occur
 // Activated by the magnet and reed switch in the rain gauge, attached to input D2
-{
     previousRainIRQ = lastRainIRQ;
     lastRainIRQ = millis(); // grab current time
     volatile long rainIRQDelta = rainTime - lastRainIRQ; // calculate interval between this and last event
@@ -247,9 +231,8 @@ void rainIRQ()
 }
 
 
-void wspeedIRQ()
+void wspeedIRQ() {
 // Activated by the magnet in the anemometer (2 ticks per rotation), attached to input D3
-{
     if (millis() - lastWindIRQ > 10) // Ignore switch-bounce glitches less than 10ms (142MPH max reading) after the reed switch closes
     {
         previousWindIRQ = lastWindIRQ;
