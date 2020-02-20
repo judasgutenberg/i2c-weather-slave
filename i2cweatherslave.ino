@@ -1,4 +1,4 @@
-/*  Judas Gutenberg (aka Gus Mueller), February 18, 2020
+/*  Judas Gutenberg, September 6 2015
  * compiles data on a small Arduino (I use a Mini Pro at 8MHz) to be read by a
  * Raspberry Pi over I2C
  * based on the Sparkfun Weather Shield example
@@ -32,10 +32,11 @@ byte minutes_10m; //Keeps track of where we are in wind gust/dir over last 10 mi
 
 long lastWindCheck = 0;
 long rainTime = millis();
+long highLong = 100000;
 volatile long lastRainIRQ = millis();
 volatile long previousRainIRQ = 0;
-volatile long smallestRainIRQDelta = 100000;
-int rainHour[60];
+volatile long smallestRainIRQDelta = highLong;
+ 
 int dailyRain = 0;
 int rainCupThousandths = 11;
  
@@ -43,7 +44,9 @@ int rainCupThousandths = 11;
 volatile long lastWindIRQ = 0;
 volatile long previousWindIRQ = 0;
 volatile byte windClicks = 0;
-volatile long smallestWindIRQDelta = 100000;
+volatile long smallestWindIRQDelta = highLong;
+
+volatile byte readMode = 0; //different readModes happen
  
  
  
@@ -51,7 +54,8 @@ volatile long smallestWindIRQDelta = 100000;
 char lastKey;
 
 void setup(){
-  Wire.begin(I2C_SLAVE_ADDR); 
+  Wire.begin(I2C_SLAVE_ADDR);
+  Wire.onReceive(receieveEvent); 
   Wire.onRequest(requestEvent);
   pinMode(INTERRUPT_OUT, OUTPUT);   
   digitalWrite(INTERRUPT_OUT, LOW);
@@ -94,7 +98,7 @@ void loop()
   Serial.print("\t");
   Serial.print(smallestRainIRQDelta);
   Serial.print("\t");
-  int val = analogRead(0);
+  int val = rawToDirection(analogRead(0));
   Serial.print(val);
   Serial.println(" ");
   delay(2000);
@@ -106,30 +110,103 @@ void loop()
 //but in the true Wire library it seems you can send whole arrays, which is all that matters here
 void requestEvent()
 {
-  byte command = Wire.read();
-  Serial.println(command);
-  command = Wire.read();
-  Serial.println(command);
-  command = Wire.read();
-  Serial.println(command);
-  writeWireLong(millis());
-  Wire.write("\t");
-  writeWireLong(windClicks);
-  Wire.write("\t");
-  writeWireLong(lastWindIRQ);
-  Wire.write("\t");
-  writeWireLong(smallestWindIRQDelta);
-  Wire.write("\t");
-  writeWireLong(dailyRain);
-  Wire.write("\t");
-  writeWireLong(lastRainIRQ);
-  Wire.write("\t");
-  writeWireLong(smallestRainIRQDelta);
-  Wire.write("\t");
-  
- 
+  //the usual data dump
+  if(readMode == 0) {
+    writeWireLong(millis());
+    Wire.write("\t");
+    writeWireLong(windClicks);
+    Wire.write("\t");
+    writeWireLong(lastWindIRQ);
+    Wire.write("\t");
+    writeWireLong(smallestWindIRQDelta);
+    Wire.write("\t");
+    writeWireLong(dailyRain);
+    Wire.write("\t");
+    writeWireLong(lastRainIRQ);
+    Wire.write("\t");
+    writeWireLong(smallestRainIRQDelta);
+    Wire.write("\t");
+  } else if(readMode == 1) { //just give me wind stuff
+    writeWireLong(millis());
+    Wire.write("\t");
+    writeWireLong(windClicks);
+    Wire.write("\t");
+    writeWireLong(lastWindIRQ);
+    Wire.write("\t");
+    writeWireLong(smallestWindIRQDelta);
+  } else if(readMode == 2) { //just give me rain stuff
+    writeWireLong(millis());
+    Wire.write("\t");
+    writeWireLong(dailyRain);
+    Wire.write("\t");
+    writeWireLong(lastRainIRQ);
+    Wire.write("\t");
+    writeWireLong(smallestRainIRQDelta);
+  } else if(readMode == 3) { //just give me degree wind direction
+    int val = rawToDirection(analogRead(0));
+    writeWireInt(val);
+  } else if(readMode == 4) { //just give me raw wind direction stuff
+    int val = analogRead(0);
+    writeWireInt(val);
+  //if between 100 and 103 
+  //give me the analog read from the four available anlog in pins (4 & 5 are taken up with I2C)
+  } else if(readMode > 99 && readMode < 104) { 
+    int val = analogRead(readMode-100);
+    writeWireInt(val);
+  } else if(readMode == 5) { //clear the recent gust storage
+    smallestWindIRQDelta = highLong;
+    Wire.write("\t");
+    Wire.write("\t");
+  } else if(readMode == 5) { //clear the recent downpour storage
+    smallestRainIRQDelta = highLong;
+    Wire.write("\t");
+    Wire.write("\t");
+  } else {
+   Wire.write("\t");
+  }
 }
 
+void receieveEvent()
+{
+  Serial.println("receive event");
+  byte byteCount = 0;
+  while(0 < Wire.available()) // loop through all but the last
+  {
+    byte command = Wire.read();
+    if(byteCount ==0) {
+      readMode = command;
+      Serial.println(command);
+    }
+    byteCount++;
+  }
+}
+
+//converts the sparkfun resistance data from the windvane into degrees from north
+//this allows for the resistance to wander from their set values by plus or minus 0.1 percent or so
+//you may need to adjust these values for your particular windvane
+int rawToDirection(int raw){
+  int out  = 360;
+  if(raw> 785 && raw<795) {
+    out = 0;
+  } else if(raw> 89 && raw < 95) {
+    out = 90;
+  } else if(raw> 89 && raw < 96) {
+    out = 90;
+  } else if(raw> 285 && raw < 295) {
+    out = 180;
+  } else if(raw> 940 && raw < 950) {
+    out = 270;
+  } else if(raw> 460 && raw < 470) {
+    out = 45;
+  } else if(raw> 180 && raw < 190) {
+    out = 135;
+  } else if(raw> 629 && raw < 636) {
+    out = 225;
+  } else if(raw> 885 && raw < 895) {
+    out = 315;
+  }
+  return out;
+}
 
 void writeWireLong(long val) {
   byte buffer[4];
@@ -140,12 +217,18 @@ void writeWireLong(long val) {
   Wire.write(buffer, 4);
 }
 
+void writeWireInt(int val) {
+  byte buffer[2];
+  buffer[0] = val >> 8;
+  buffer[1] = val;
+  Wire.write(buffer, 2);
+}
  
 
 
-
-//Interrupt routines (these are called by the hardware interrupts, not by the main code)
-//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+//////////////////////////////////////////////////
+//interrupt routines 
+//////////////////////////////////////////////////
 void rainIRQ()
 // Count rain gauge bucket tips as they occur
 // Activated by the magnet and reed switch in the rain gauge, attached to input D2
@@ -153,18 +236,12 @@ void rainIRQ()
     previousRainIRQ = lastRainIRQ;
     lastRainIRQ = millis(); // grab current time
     volatile long rainIRQDelta = rainTime - lastRainIRQ; // calculate interval between this and last event
-
     if (rainIRQDelta > 10) // ignore switch-bounce glitches less than 10ms after initial edge
     {
-
         if(rainIRQDelta> 0 && smallestRainIRQDelta < rainIRQDelta) {
-
           smallestRainIRQDelta = rainIRQDelta;
         }
-        
         dailyRain += rainCupThousandths; //Each dump is 0.011" of water
-        rainHour[minutes] += rainCupThousandths; //Increase this minute's amount of rain
-
         lastRainIRQ = rainTime; // set up for next event
     }
 }
@@ -179,7 +256,6 @@ void wspeedIRQ()
         lastWindIRQ = millis(); //Grab the current time
         volatile long windIRQDelta = lastWindIRQ - previousWindIRQ;
         if(windIRQDelta> 0 && windIRQDelta < smallestWindIRQDelta) {
-
           smallestWindIRQDelta = windIRQDelta;
         }
         windClicks++; //There is 1.492MPH for each click per second.
