@@ -3,6 +3,7 @@
  * Raspberry Pi over I2C
  * based on the Sparkfun Weather Shield example
  */
+#include <Keypad.h>
 #include "Wire.h"
 #define I2C_SLAVE_ADDR 20
 #define INTERRUPT_OUT 0
@@ -41,7 +42,6 @@ volatile long smallestWindIRQDelta = highLong;
 
 volatile byte readMode = 0; //different readModes happen
 
-
 void setup(){
   Wire.begin(I2C_SLAVE_ADDR);
   Wire.onReceive(receieveEvent); 
@@ -52,20 +52,15 @@ void setup(){
   Serial.begin(9600);
   Serial.println("Weather Shield Example");
 
-  pinMode(STAT1, OUTPUT); //Status LED Blue
-  pinMode(STAT2, OUTPUT); //Status LED Green
-
   pinMode(WSPEED, INPUT_PULLUP); // input from wind meters windspeed sensor
   pinMode(RAIN, INPUT_PULLUP); // input from wind meters rain gauge sensor
-
- 
-
+  
   seconds = 0;
   lastSecond = millis();
 
   // attach external interrupt pins to IRQ functions
-  attachInterrupt(digitalPinToInterrupt(2), rainIRQ, FALLING);
-  attachInterrupt(digitalPinToInterrupt(3), wspeedIRQ, FALLING);
+  attachInterrupt(digitalPinToInterrupt(RAIN), rainIRQ, FALLING);
+  attachInterrupt(digitalPinToInterrupt(WSPEED), wspeedIRQ, FALLING);
   // turn on interrupts
   interrupts();
 }
@@ -90,7 +85,6 @@ void loop(){
   Serial.println(" ");
   delay(2000);
 }
-
 
 //send a byte to the I2C master.  
 //on the ATTiny, the the master calls this x times, not just once as I'd originally thought
