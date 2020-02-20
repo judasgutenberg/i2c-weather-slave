@@ -3,7 +3,7 @@
  * Raspberry Pi over I2C
  * based on the Sparkfun Weather Shield example
  */
-#include <Keypad.h>
+ 
 #include "Wire.h"
 #define I2C_SLAVE_ADDR 20
 #define INTERRUPT_OUT 0
