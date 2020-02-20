@@ -3,7 +3,6 @@
  * Raspberry Pi over I2C
  * based on the Sparkfun Weather Shield example
  */
-#include <Keypad.h>
 #include "Wire.h"
 #define I2C_SLAVE_ADDR 20
 #define INTERRUPT_OUT 0
@@ -27,7 +26,6 @@ byte minutes; //Keeps track of where we are in various arrays of data
 byte minutes_10m; //Keeps track of where we are in wind gust/dir over last 10 minutes array of data
 
 long lastWindCheck = 0;
-long rainTime = millis();
 long highLong = 100000;
 volatile long lastRainIRQ = millis();
 volatile long previousRainIRQ = 0;
@@ -219,22 +217,23 @@ void rainIRQ() {
 // Activated by the magnet and reed switch in the rain gauge, attached to input D2
     previousRainIRQ = lastRainIRQ;
     lastRainIRQ = millis(); // grab current time
-    volatile long rainIRQDelta = rainTime - lastRainIRQ; // calculate interval between this and last event
-    if (rainIRQDelta > 10) // ignore switch-bounce glitches less than 10ms after initial edge
-    {
-        if(rainIRQDelta> 0 && smallestRainIRQDelta < rainIRQDelta) {
+    volatile long rainIRQDelta = lastRainIRQ - previousRainIRQ; // calculate interval between this and last event
+    if ((unsigned long)(rainIRQDelta) >= 10) { //better handle rollover
+    //if (rainIRQDelta > 10) { 
+        // ignore switch-bounce glitches less than 10ms after initial edge
+        if(rainIRQDelta> 0 &&  rainIRQDelta < smallestRainIRQDelta) {
           smallestRainIRQDelta = rainIRQDelta;
         }
         dailyRain += rainCupThousandths; //Each dump is 0.011" of water
-        lastRainIRQ = rainTime; // set up for next event
     }
 }
 
 
 void wspeedIRQ() {
 // Activated by the magnet in the anemometer (2 ticks per rotation), attached to input D3
-    if (millis() - lastWindIRQ > 10) // Ignore switch-bounce glitches less than 10ms (142MPH max reading) after the reed switch closes
-    {
+  // Ignore switch-bounce glitches less than 10ms (142MPH max reading) after the reed switch closes
+    if ((unsigned long)(millis() - lastWindIRQ) >= 10) { //better handle rollover
+    //if (millis() - lastWindIRQ > 10) {
         previousWindIRQ = lastWindIRQ;
         lastWindIRQ = millis(); //Grab the current time
         volatile long windIRQDelta = lastWindIRQ - previousWindIRQ;
