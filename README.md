@@ -6,6 +6,8 @@ read data from such sensors using a special-purpose Arduino. For this applicatio
 speed. It also reads the analog value from the wind direction sensor (since Raspberry Pis cannot read analog values without some
 sort of assistance).
 
+The Arduino sketch is designed so it can read any of its analog lines when commanded to.
+
 To receive the sensor data via I2C on a Raspberry Pi,  
 sensors.py will get you started.
 
