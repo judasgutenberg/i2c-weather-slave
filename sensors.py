@@ -1,7 +1,14 @@
 import time
 import smbus
+import smbus2
 import mysql
 import mysql.connector
+
+import bme280
+
+
+
+ 
  
 
 def writeDataRecord(temperature, pressure, humidity, wind_direction, precipitation, wind_speed, wind_increment):
@@ -45,6 +52,13 @@ def collapseDelimitedBytesIntoIntegers(delimitedBytes):
 i2c_ch = 1
 bus = smbus.SMBus(i2c_ch)
 
+
+port = 1
+bmeAddress = 0x76 # Adafruit BME280 address. Other BME280s may be different
+
+
+temperature,pressure,humidity = bme280.readBME280All()
+
 i2c_address = 20
 
 bus.write_byte_data(i2c_address, 14, 17)
@@ -67,7 +81,7 @@ print("--wind--");
 print(windArray)
 print(fixedWindArray)
 
-writeDataRecord(12, 13, 14, intFromBytes(val), 15, 16, 17)
+writeDataRecord(temperature, pressure, 0, intFromBytes(val), 15, 16, 17)
 
 
 
