@@ -25,6 +25,7 @@ byte seconds; //When it hits 60, increase the current minute
 byte seconds_2m; //Keeps track of the "wind speed/dir avg" over last 2 minutes array of data
 byte minutes; //Keeps track of where we are in various arrays of data
 byte minutes_10m; //Keeps track of where we are in wind gust/dir over last 10 minutes array of data
+int angleCorrection = 0;
 
 long lastWindCheck = 0;
 long highLong = 100000;
@@ -32,16 +33,16 @@ volatile long lastRainIRQ = millis();
 volatile long previousRainIRQ = 0;
 volatile long smallestRainIRQDelta = highLong;
  
-int dailyRain = 0;
+long dailyRain = 0;
 int rainCupThousandths = 11;
  
 volatile long lastWindIRQ = 0;
 volatile long previousWindIRQ = 0;
-volatile byte windClicks = 0;
+volatile long windClicks = 0;
 volatile long smallestWindIRQDelta = highLong;
 
 volatile byte readMode = 0; //different readModes happen
-
+volatile int receivedValue = 0;
 void setup(){
   Wire.begin(I2C_SLAVE_ADDR);
   Wire.onReceive(receieveEvent); 
@@ -80,7 +81,7 @@ void loop(){
   Serial.print("\t");
   Serial.print(smallestRainIRQDelta);
   Serial.print("\t");
-  int val = rawToDirection(analogRead(0));
+  int val = rawToDirection(analogRead(0), angleCorrection);
   Serial.print(val);
   Serial.println(" ");
   delay(2000);
@@ -123,7 +124,7 @@ void requestEvent(){
     Wire.write("\t");
     writeWireLong(smallestRainIRQDelta);
   } else if(readMode == 3) { //just give me degree wind direction
-    int val = rawToDirection(analogRead(0));
+    int val = rawToDirection(analogRead(0), angleCorrection);
     writeWireInt(val);
   } else if(readMode == 4) { //just give me raw wind direction stuff
     int val = analogRead(0);
@@ -135,35 +136,74 @@ void requestEvent(){
     writeWireInt(val);
   } else if(readMode == 5) { //clear the recent gust storage
     smallestWindIRQDelta = highLong;
+    windClicks = 0;
     Wire.write("\t");
     Wire.write("\t");
   } else if(readMode == 6) { //clear the recent downpour storage
     smallestRainIRQDelta = highLong;
+    dailyRain = 0;
     Wire.write("\t");
     Wire.write("\t");
+  } else if(readMode == 7) {//set angle correction
+    Serial.print("ANGLE CORRECTION:");
+    Serial.println(receivedValue);
+    angleCorrection = receivedValue;
   } else {
    Wire.write("\t");
   }
 }
 
 void receieveEvent() {
-  Serial.println("receive event");
+  //Serial.println("receive event");
   byte byteCount = 0;
+  byte byteCursor = 0;
+  byte receivedValues[4];
+  byte receivedByte = 0;
+  byte command = 0;
+  byte byteRead = 0;
+  receivedValue = 0;
   while(0 < Wire.available()) // loop through all but the last
   {
-    byte command = Wire.read();
+    byteRead = Wire.read();
+    
     if(byteCount ==0) {
-      readMode = command;
+      readMode = byteRead;
+      command = byteRead;
       Serial.println(command);
+    } else {
+      receivedByte = byteRead;
+      //Serial.println("got more than a command");
+      receivedValues[byteCursor] = receivedByte;
+      //Serial.println(receivedByte);
+      byteCursor++;
     }
     byteCount++;
+  }
+  for(byte otherByteCursor = byteCursor; otherByteCursor>0; otherByteCursor--) {
+    receivedValue = receivedValue + receivedValues[otherByteCursor-1] * pow(256, byteCursor-1)  ;
+    //Serial.println("qoot: ");
+    //Serial.print(byteCursor-1);
+    //Serial.print(":");
+    //Serial.print(receivedValue);
+  }
+  if(command == 7) { //have to do these here i guess
+   Serial.println("setting angle correction");
+   angleCorrection = receivedValue;
+  } else if(command == 5) { //clear the recent gust storage
+    Serial.println("resetting wind count");
+    smallestWindIRQDelta = highLong;
+    windClicks = 0;
+  } else if(command == 6) { //clear the recent downpour storage
+    Serial.println("resetting rain counts");
+    smallestRainIRQDelta = highLong;
+    dailyRain = 0;
   }
 }
 
 //converts the sparkfun resistance data from the windvane into degrees from north
 //this allows for the resistance to wander from their set values by plus or minus 0.1 percent or so
 //you may need to adjust these values for your particular windvane
-int rawToDirection(int raw){
+int rawToDirection(int raw, int angleCorrection){
   int out  = 360;
   if(raw> 785 && raw<795) {
     out = 0;
@@ -184,6 +224,15 @@ int rawToDirection(int raw){
   } else if(raw> 885 && raw < 895) {
     out = 315;
   }
+  //Serial.print("XX");
+  //Serial.println(angleCorrection);
+  if(angleCorrection > 0) {
+    out = out + angleCorrection;
+    if(out>359) {
+      out = out - 360;
+    }
+  }
+ 
   return out;
 }
 
