@@ -65,7 +65,11 @@ bus.write_byte_data(i2c_address, 14, 17)
 #val = bus.read_i2c_block_data(i2c_address,5)#get raw wind direction
 #print(val)
 
-val = bus.read_i2c_block_data(i2c_address,3)#get  wind direction
+
+direction = 360 
+while direction == 360: #direction should never be 360
+	val = bus.read_i2c_block_data(i2c_address,3)#get  wind direction
+	direction = intFromBytes(val)
 print(val)
 
 rainArray = bus.read_i2c_block_data(i2c_address,2)#get rain info
@@ -77,11 +81,12 @@ print(fixedRainArray)
 windArray = bus.read_i2c_block_data(i2c_address,1)#get wind info
 
 fixedWindArray = collapseDelimitedBytesIntoIntegers(windArray);
+windDelta = fixedWindArray[0] - fixedWindArray[2]
 print("--wind--");
 print(windArray)
 print(fixedWindArray)
 
-writeDataRecord(temperature, pressure, 0, intFromBytes(val), 15, 16, 17)
+writeDataRecord(temperature, pressure, 0, direction, fixedRainArray[1], fixedWindArray[1] , windDelta)
 
 
 
