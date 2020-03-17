@@ -1,3 +1,4 @@
+from __future__ import division
 import time
 import smbus
 import smbus2
@@ -85,11 +86,16 @@ wind_increment = fixedWindArray[0] - fixedWindArray[2]
 print("--wind--");
 #print(windArray)
 #print(fixedWindArray)
+print(wind_increment)
+print(float(wind_increment/1000))
+print("***********")
 if wind_increment == 0:
 	wind_increment = 0.001
-wind_speed =  1.41/(wind_increment/1000) 
+
+
+
+wind_speed =  1.41/float(wind_increment/1000) 
 print(wind_speed)
-print(wind_increment)
 writeDataRecord(temperature, pressure, 0, intFromBytes(val), rain_amount, wind_speed, wind_increment, rain_increment, millis)
 
 
