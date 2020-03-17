@@ -11,14 +11,14 @@ import bme280
  
  
 
-def writeDataRecord(temperature, pressure, humidity, wind_direction, precipitation, wind_speed, wind_increment):
+def writeDataRecord(temperature, pressure, humidity, wind_direction, precipitation, wind_speed, wind_increment, rain_increment, millis):
 	mydb = mysql.connector.connect(
 	  host="localhost",
 	  user="weathertron",
 	  passwd="tron",
 	  database="weathertron"
 	)
-	sql = "INSERT INTO weather_data(recorded, temperature, pressure, humidity, wind_direction, precipitation, wind_speed, wind_increment) VALUES (now(), " + str(temperature) + "," + str(pressure) + "," + str(humidity) + "," + str(wind_direction) + "," + str(precipitation) + "," + str(wind_speed) + "," + str(wind_increment) + ")"
+	sql = "INSERT INTO weather_data(recorded, temperature, pressure, humidity, wind_direction, precipitation, wind_speed, wind_increment, rain_increment, millis) VALUES (now(), " + str(temperature) + "," + str(pressure) + "," + str(humidity) + "," + str(wind_direction) + "," + str(precipitation) + "," + str(wind_speed) + "," + str(wind_increment) +"," + str(rain_increment) +"," + str(millis) + ")"
 	#print("++++++")
 	#print(sql)
 	#val = (temperature, pressure, humidity, wind_direction, precipitation, wind_speed, wind_increment)
@@ -73,6 +73,8 @@ rainArray = bus.read_i2c_block_data(i2c_address,2)#get rain info
 #bus.read_i2c_block_data(i2c_address,5)#delete accumlated gust -- doesn't seem to work
 fixedRainArray = collapseDelimitedBytesIntoIntegers(rainArray);
 rain_amount = fixedRainArray[1]
+millis = fixedRainArray[0]
+rain_increment = millis - fixedRainArray[2]
 print("--rain--");
 print(fixedRainArray)
 windArray = bus.read_i2c_block_data(i2c_address,1)#get wind info
@@ -83,11 +85,12 @@ wind_increment = fixedWindArray[0] - fixedWindArray[2]
 print("--wind--");
 #print(windArray)
 #print(fixedWindArray)
-
+if wind_increment == 0:
+	wind_increment = 0.001
 wind_speed =  1.41/(wind_increment/1000) 
 print(wind_speed)
 print(wind_increment)
-writeDataRecord(temperature, pressure, 0, intFromBytes(val), rain_amount, wind_speed, wind_increment)
+writeDataRecord(temperature, pressure, 0, intFromBytes(val), rain_amount, wind_speed, wind_increment, rain_increment, millis)
 
 
 
