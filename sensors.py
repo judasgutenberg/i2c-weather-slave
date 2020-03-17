@@ -66,8 +66,11 @@ bus.write_byte_data(i2c_address, 14, 17)
 #val = bus.read_i2c_block_data(i2c_address,5)#get raw wind direction
 #print(val)
 
-val = bus.read_i2c_block_data(i2c_address,3)#get  wind direction
-print(val)
+wind_direction = 360
+while wind_direction == 360:
+	rawWindDirection = bus.read_i2c_block_data(i2c_address,3)#get  wind direction
+	wind_direction = intFromBytes(rawWindDirection)
+ 
 
 rainArray = bus.read_i2c_block_data(i2c_address,2)#get rain info
 #bus.read_i2c_block_data(i2c_address,6)#delete accumlated rain -- doesn't seem to work
@@ -96,7 +99,7 @@ if wind_increment == 0:
 
 wind_speed =  1.41/float(wind_increment/1000) 
 print(wind_speed)
-writeDataRecord(temperature, pressure, 0, intFromBytes(val), rain_amount, wind_speed, wind_increment, rain_increment, millis)
+writeDataRecord(temperature, pressure, 0, wind_direction, rain_amount, wind_speed, wind_increment, rain_increment, millis)
 
 
 
