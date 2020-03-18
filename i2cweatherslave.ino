@@ -7,7 +7,14 @@
 #include "Wire.h"
 #define I2C_SLAVE_ADDR 20
 #define INTERRUPT_OUT 0
- 
+#include "DHT.h"
+
+
+#define DHT11PIN 5
+#define DHTTYPE DHT22
+DHT dht(DHT11PIN, DHTTYPE);
+
+
 // digital I/O pins
 const byte WSPEED = 3;
 const byte RAIN = 2;
@@ -43,7 +50,14 @@ volatile long smallestWindIRQDelta = highLong;
 
 volatile byte readMode = 0; //different readModes happen
 volatile int receivedValue = 0;
+
+
+int humidity = 0;
+int temperatureFromHumidity = 0;
+
+
 void setup(){
+  dht.begin();
   Wire.begin(I2C_SLAVE_ADDR);
   Wire.onReceive(receieveEvent); 
   Wire.onRequest(requestEvent);
@@ -84,6 +98,16 @@ void loop(){
   int val = rawToDirection(analogRead(0), angleCorrection);
   Serial.print(val);
   Serial.println(" ");
+
+  humidity = dht.readHumidity() * 100;
+  temperatureFromHumidity = dht.readTemperature() * 100;
+ 
+ 
+  Serial.print(millis());
+  Serial.print(" Humidity (%): ");
+  Serial.print(humidity);
+  Serial.print(" Temperature (C): ");
+  Serial.println(temperatureFromHumidity);
   delay(2000);
 }
 
@@ -148,6 +172,10 @@ void requestEvent(){
     Serial.print("ANGLE CORRECTION:");
     Serial.println(receivedValue);
     angleCorrection = receivedValue;
+   } else if(readMode == 8) { //humidity
+    writeWireInt(humidity);
+    Wire.write("\t");
+    writeWireInt(temperatureFromHumidity);
   } else {
    Wire.write("\t");
   }
