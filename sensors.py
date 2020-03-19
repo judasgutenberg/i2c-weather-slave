@@ -1,16 +1,12 @@
-from __future__ import division
-import time
-import smbus
-import smbus2
-import mysql
+from __future__ import division 
+import time 
+import smbus 
+import smbus2 
+import mysql 
 import mysql.connector
-
 import bme280
+import RPi.GPIO as GPIO
 
-
-
- 
- 
 
 def writeDataRecord(temperature, pressure, humidity, wind_direction, precipitation, wind_speed, wind_increment, rain_increment, millis):
 	mydb = mysql.connector.connect(
@@ -49,6 +45,11 @@ def collapseDelimitedBytesIntoIntegers(delimitedBytes):
 			currentByteArray = []
 	return outArray
 
+#set the reset line to the arduino so it is not being reset
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(18, GPIO.OUT)
+GPIO.output(18, GPIO.HIGH)
+
 
 i2c_ch = 1
 bus = smbus.SMBus(i2c_ch)
@@ -56,54 +57,64 @@ bus = smbus.SMBus(i2c_ch)
 
 port = 1
 bmeAddress = 0x76 # Adafruit BME280 address. Other BME280s may be different
-
-
 temperature,pressure,humidity = bme280.readBME280All()
-
 i2c_address = 20
 
-bus.write_byte_data(i2c_address, 14, 17)
-#val = bus.read_i2c_block_data(i2c_address,5)#get raw wind direction
-#print(val)
+try:
+	bus.write_byte_data(i2c_address, 14, 17)
+except:
+	#if you cannot reach the arduino, reset it
+	GPIO.setmode(GPIO.BCM)
+	GPIO.setup(18, GPIO.OUT)
+	GPIO.output(18, GPIO.HIGH)
+	GPIO.output(18, GPIO.LOW)
+	time.sleep(0.1) 
+	GPIO.output(18, GPIO.HIGH)
+	time.sleep(0.1) 
 
 wind_direction = 360
 while wind_direction == 360:
 	rawWindDirection = bus.read_i2c_block_data(i2c_address,3)#get  wind direction
 	wind_direction = intFromBytes(rawWindDirection)
  
+millis = 0
+while millis < 256:
+	rainArray = bus.read_i2c_block_data(i2c_address,2)#get rain info
 
-rainArray = bus.read_i2c_block_data(i2c_address,2)#get rain info
-#bus.read_i2c_block_data(i2c_address,6)#delete accumlated rain -- doesn't seem to work
-#bus.read_i2c_block_data(i2c_address,5)#delete accumlated gust -- doesn't seem to work
-fixedRainArray = collapseDelimitedBytesIntoIntegers(rainArray);
-rain_amount = fixedRainArray[1]
-millis = fixedRainArray[0]
-rain_increment = millis - fixedRainArray[2]
-print("--rain--");
-print(fixedRainArray)
-windArray = bus.read_i2c_block_data(i2c_address,1)#get wind info
+	rawHumidityArray  = bus.read_i2c_block_data(i2c_address,8)#get humidity info
+	fixedHumidityArray = collapseDelimitedBytesIntoIntegers(rawHumidityArray);
+	print("humidity----")
+	print(fixedHumidityArray[0])
+	humidity = fixedHumidityArray[0]
+	#bus.read_i2c_block_data(i2c_address,6)#delete accumlated rain -- doesn't seem to work
+	#bus.read_i2c_block_data(i2c_address,5)#delete accumlated gust -- doesn't seem to work
+	fixedRainArray = collapseDelimitedBytesIntoIntegers(rainArray);
 
-fixedWindArray = collapseDelimitedBytesIntoIntegers(windArray);
-#wind_speed = fixedWindArray[1] # fuck that
-wind_increment = fixedWindArray[0] - fixedWindArray[2]
-print("--wind--");
-#print(windArray)
-#print(fixedWindArray)
-print(wind_increment)
-print(float(wind_increment/1000))
-print("***********")
-if wind_increment == 0:
-	wind_increment = 0.001
-
-
-
-wind_speed =  1.41/float(wind_increment/1000) 
-print(wind_speed)
-writeDataRecord(temperature, pressure, 0, wind_direction, rain_amount, wind_speed, wind_increment, rain_increment, millis)
-
-
-
-
+	rain_amount = fixedRainArray[1]
+	millis = fixedRainArray[0]
+	rain_increment = millis - fixedRainArray[2]
+	print("--rain--");
+	print(fixedRainArray)
+	windArray = bus.read_i2c_block_data(i2c_address,1)#get wind info
+	
+	fixedWindArray = collapseDelimitedBytesIntoIntegers(windArray);
+	#wind_speed = fixedWindArray[1] # fuck that
+	wind_increment = fixedWindArray[0] - fixedWindArray[2]
+	print("--wind--");
+	#print(windArray)
+	#print(fixedWindArray)
+	print(wind_increment)
+	print(float(wind_increment/1000))
+	print("***********")
+	if wind_increment == 0:
+		wind_increment = 0.001
+	
+	decimalHumidity = float(humidity/100)
+	
+	wind_speed =  1.41/float(wind_increment/1000) 
+	print(wind_speed)
+	
+writeDataRecord(temperature, pressure, decimalHumidity, wind_direction, rain_amount, wind_speed, wind_increment, rain_increment, millis)
 
 
 
