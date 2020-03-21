@@ -8,14 +8,14 @@ import bme280
 import RPi.GPIO as GPIO
 
 
-def writeDataRecord(temperature, pressure, humidity, wind_direction, precipitation, wind_speed, wind_increment, rain_increment, millis):
+def writeDataRecord(temperature, pressure, humidity, wind_direction, precipitation, wind_speed, wind_increment, rain_increment, millis, failed_attempts):
 	mydb = mysql.connector.connect(
 	  host="localhost",
 	  user="weathertron",
 	  passwd="tron",
 	  database="weathertron"
 	)
-	sql = "INSERT INTO weather_data(recorded, temperature, pressure, humidity, wind_direction, precipitation, wind_speed, wind_increment, rain_increment, millis) VALUES (now(), " + str(temperature) + "," + str(pressure) + "," + str(humidity) + "," + str(wind_direction) + "," + str(precipitation) + "," + str(wind_speed) + "," + str(wind_increment) +"," + str(rain_increment) +"," + str(millis) + ")"
+	sql = "INSERT INTO weather_data(recorded, temperature, pressure, humidity, wind_direction, precipitation, wind_speed, wind_increment, rain_increment, millis, failed_attempts) VALUES (now(), " + str(temperature) + "," + str(pressure) + "," + str(humidity) + "," + str(wind_direction) + "," + str(precipitation) + "," + str(wind_speed) + "," + str(wind_increment) +"," + str(rain_increment) + "," + str(millis) + "," + str(failed_attempts) + ")"
 	#print("++++++")
 	#print(sql)
 	#val = (temperature, pressure, humidity, wind_direction, precipitation, wind_speed, wind_increment)
@@ -73,18 +73,20 @@ except:
 	time.sleep(0.1) 
 
 wind_direction = 360
+loopTimes = 0
 while wind_direction == 360:
 	rawWindDirection = bus.read_i2c_block_data(i2c_address,3)#get  wind direction
 	wind_direction = intFromBytes(rawWindDirection)
- 
+	loopTimes += 100000
 millis = 0
-while millis < 256:
+
+while millis < 2:
 	rainArray = bus.read_i2c_block_data(i2c_address,2)#get rain info
 
 	rawHumidityArray  = bus.read_i2c_block_data(i2c_address,8)#get humidity info
 	fixedHumidityArray = collapseDelimitedBytesIntoIntegers(rawHumidityArray);
-	print("humidity----")
-	print(fixedHumidityArray[0])
+	#print("humidity----")
+	#print(fixedHumidityArray[0])
 	humidity = fixedHumidityArray[0]
 	#bus.read_i2c_block_data(i2c_address,6)#delete accumlated rain -- doesn't seem to work
 	#bus.read_i2c_block_data(i2c_address,5)#delete accumlated gust -- doesn't seem to work
@@ -92,29 +94,41 @@ while millis < 256:
 
 	rain_amount = fixedRainArray[1]
 	millis = fixedRainArray[0]
-	rain_increment = millis - fixedRainArray[2]
-	print("--rain--");
-	print(fixedRainArray)
+	
+	#print("--rain--");
+	#print(fixedRainArray)
 	windArray = bus.read_i2c_block_data(i2c_address,1)#get wind info
 	
 	fixedWindArray = collapseDelimitedBytesIntoIntegers(windArray);
+	otherMillis = fixedWindArray[0]
+	
+	#we get millis from both rain and windspeed data, taken close to one another, 
+	#so if they are too far apart, one of them must've been garbled
+	print("millis check----")
+	print(millis, otherMillis)
+	if abs(millis - otherMillis) > 400:
+		millis = 0 #if so, set millis to zero so we don't exit this loop
+		
+	
+	rain_increment = millis - fixedRainArray[2]
 	#wind_speed = fixedWindArray[1] # fuck that
 	wind_increment = fixedWindArray[0] - fixedWindArray[2]
-	print("--wind--");
+	#print("--wind--");
 	#print(windArray)
 	#print(fixedWindArray)
-	print(wind_increment)
-	print(float(wind_increment/1000))
-	print("***********")
+	#print(wind_increment)
+	#print(float(wind_increment/1000))
+	#print("***********")
 	if wind_increment == 0:
 		wind_increment = 0.001
 	
 	decimalHumidity = float(humidity/100)
 	
 	wind_speed =  1.41/float(wind_increment/1000) 
-	print(wind_speed)
+	#print(wind_speed)
+	loopTimes += 1
 	
-writeDataRecord(temperature, pressure, decimalHumidity, wind_direction, rain_amount, wind_speed, wind_increment, rain_increment, millis)
+writeDataRecord(temperature, pressure, decimalHumidity, wind_direction, rain_amount, wind_speed, wind_increment, rain_increment, millis, loopTimes)
 
 
 
