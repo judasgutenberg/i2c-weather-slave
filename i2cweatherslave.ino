@@ -81,6 +81,7 @@ void setup(){
 }
 
 void loop(){
+  /*
   Serial.print(millis());
   Serial.print("\t");
   Serial.print(windClicks);
@@ -95,7 +96,11 @@ void loop(){
   Serial.print("\t");
   Serial.print(smallestRainIRQDelta);
   Serial.print("\t");
+  */
   int val = rawToDirection(analogRead(0), angleCorrection);
+  Serial.print("direction: ");
+  Serial.print(analogRead(0));
+  Serial.print(" ");
   Serial.print(val);
   Serial.println(" ");
 
@@ -176,6 +181,12 @@ void requestEvent(){
     writeWireInt(humidity);
     Wire.write("\t");
     writeWireInt(temperatureFromHumidity);
+   } else if(readMode == 9) { //give me wind direction and raw direction
+    int val = analogRead(analogRead(0));
+    writeWireInt(val);
+    Wire.write("\t");
+    val = rawToDirection(analogRead(0), angleCorrection);
+    writeWireInt(val);
   } else {
    Wire.write("\t");
   }
@@ -233,24 +244,36 @@ void receieveEvent() {
 //you may need to adjust these values for your particular windvane
 int rawToDirection(int raw, int angleCorrection){
   int out  = 360;
-  if(raw> 785 && raw<795) {
+  if(raw> 785 && raw<800) {
     out = 0;
+  } else if(raw> 412 && raw < 423) {
+    out = 22;
   } else if(raw> 89 && raw < 95) {
-    out = 90;
-  } else if(raw> 89 && raw < 96) {
-    out = 90;
-  } else if(raw> 285 && raw < 295) {
+    out = 67;
+  } else if(raw> 94 && raw < 125) {
+    out = 90; //was 67
+  } else if(raw> 190 && raw < 220) {
+    out = 135;  
+  } else if(raw> 285 && raw < 321) {
     out = 180;
+  } else if(raw> 250 && raw < 310) {
+    out = 203;
   } else if(raw> 940 && raw < 950) {
     out = 270;
-  } else if(raw> 460 && raw < 470) {
+  } else if(raw> 460 && raw < 479) {
     out = 45;
   } else if(raw> 180 && raw < 190) {
-    out = 135;
-  } else if(raw> 629 && raw < 636) {
+    out = 135; //old
+  } else if(raw> 629 && raw < 648) {
     out = 225;
+  } else if(raw> 830 && raw < 880) {
+    out = 292;
   } else if(raw> 885 && raw < 895) {
     out = 315;
+  } else if(raw> 700 && raw < 750) {
+    out = 340;
+  } else if(raw> 600 && raw < 629) {
+    out = 248; //
   }
   //Serial.print("XX");
   //Serial.println(angleCorrection);
