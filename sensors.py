@@ -60,35 +60,37 @@ port = 1
 bmeAddress = 0x76 # Adafruit BME280 address. Other BME280s may be different
 temperature,pressure,humidity = bme280.readBME280All()
 i2c_address = 20
+fail = False
 
 try:
 	bus.write_byte_data(i2c_address, 14, 17)
-except:
-	#if you cannot reach the arduino, reset it
-	GPIO.setmode(GPIO.BCM)
-	GPIO.setup(18, GPIO.OUT)
-	GPIO.output(18, GPIO.HIGH)
-	GPIO.output(18, GPIO.LOW)
-	time.sleep(0.1) 
-	GPIO.output(18, GPIO.HIGH)
-	time.sleep(0.1) 
+except: 
+	fail = True
 
 wind_direction = 360
 loopTimes = 0
 while wind_direction == 360:
-	rawWindDirection = bus.read_i2c_block_data(i2c_address,3)#get  wind direction
-	wind_direction = intFromBytes(rawWindDirection)
+	try:
+		rawWindDirection = bus.read_i2c_block_data(i2c_address,3)#get  wind direction
+		wind_direction = intFromBytes(rawWindDirection)
+	except:
+		wind_direction = -1
+		fail = True
 	loopTimes += 100000
 millis = 0
+escapeLoop = False
 
-while millis < 2:
+while millis < 2  and not escapeLoop:
 	
-
-	rawHumidityArray  = bus.read_i2c_block_data(i2c_address,8)#get humidity info
-	fixedHumidityArray = collapseDelimitedBytesIntoIntegers(rawHumidityArray);
-	#print("humidity----")
-	#print(fixedHumidityArray[0])
-	humidity = fixedHumidityArray[0]
+	try:
+		rawHumidityArray  = bus.read_i2c_block_data(i2c_address,8)#get humidity info
+		fixedHumidityArray = collapseDelimitedBytesIntoIntegers(rawHumidityArray);
+		#print("humidity----")
+		#print(fixedHumidityArray[0])
+		humidity = fixedHumidityArray[0]
+	except:
+		humidity  = -1
+		fail = True
 	#bus.read_i2c_block_data(i2c_address,6)#delete accumlated rain -- doesn't seem to work
 	#bus.read_i2c_block_data(i2c_address,5)#delete accumlated gust -- doesn't seem to work
 	
@@ -105,6 +107,7 @@ while millis < 2:
 			rain_increment = millis - fixedRainArray[2]
 		except:
 			millis = 0
+			fail = True
 
 	print(max(millisAray), min(millisAray))
 	if max(millisAray) - min(millisAray) > 400:
@@ -123,6 +126,8 @@ while millis < 2:
 		wind_increment = fixedWindArray[0] - fixedWindArray[2]
 	except:
 		otherMillis = 0
+		wind_increment = 0
+		fail = True
 	#we get millis from both rain and windspeed data, taken close to one another, 
 	#so if they are too far apart, one of them must've been garbled
 	print("millis check----")
@@ -130,8 +135,6 @@ while millis < 2:
 	if abs(millis - otherMillis) > 400:
 		millis = 0 #if so, set millis to zero so we don't exit this loop
 		
- 
-
 	#print("--wind--");
 	#print(windArray)
 	#print(fixedWindArray)
@@ -145,9 +148,22 @@ while millis < 2:
 	
 	wind_speed =  1.41/float(wind_increment/1000) 
 	#print(wind_speed)
+	if fail:
+		millis = 0
+		#if you cannot reach the arduino, reset it
+		print("about to reset")
+		GPIO.setmode(GPIO.BCM)
+		GPIO.setup(18, GPIO.OUT)
+		GPIO.output(18, GPIO.HIGH)
+		GPIO.output(18, GPIO.LOW)
+		time.sleep(0.1) 
+		GPIO.output(18, GPIO.HIGH)
+		time.sleep(0.1)
+		escapeLoop = True
 	loopTimes += 1
 	
-writeDataRecord(temperature, pressure, decimalHumidity, wind_direction, rain_amount, wind_speed, wind_increment, rain_increment, millis, loopTimes)
+if millis > 0 and not escapeLoop:
+	writeDataRecord(temperature, pressure, decimalHumidity, wind_direction, rain_amount, wind_speed, wind_increment, rain_increment, millis, loopTimes)
 
 
 
