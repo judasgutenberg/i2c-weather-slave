@@ -46,6 +46,7 @@ def collapseDelimitedBytesIntoIntegers(delimitedBytes):
 	return outArray
 
 #set the reset line to the arduino so it is not being reset
+GPIO.setwarnings(False) 
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(18, GPIO.OUT)
 GPIO.output(18, GPIO.HIGH)
@@ -81,7 +82,7 @@ while wind_direction == 360:
 millis = 0
 
 while millis < 2:
-	rainArray = bus.read_i2c_block_data(i2c_address,2)#get rain info
+	
 
 	rawHumidityArray  = bus.read_i2c_block_data(i2c_address,8)#get humidity info
 	fixedHumidityArray = collapseDelimitedBytesIntoIntegers(rawHumidityArray);
@@ -90,18 +91,38 @@ while millis < 2:
 	humidity = fixedHumidityArray[0]
 	#bus.read_i2c_block_data(i2c_address,6)#delete accumlated rain -- doesn't seem to work
 	#bus.read_i2c_block_data(i2c_address,5)#delete accumlated gust -- doesn't seem to work
-	fixedRainArray = collapseDelimitedBytesIntoIntegers(rainArray);
+	
+	
+	#make six readings of rain and get the millis from them. if any are off
+	millisAray = [0] * 6
+	for iteration in range(6):
+		try:
+			rainArray = bus.read_i2c_block_data(i2c_address,2)#get rain info
+			fixedRainArray = collapseDelimitedBytesIntoIntegers(rainArray);
+			rain_amount = fixedRainArray[1]
+			millis = fixedRainArray[0]
+			millisAray[iteration] = millis
+			rain_increment = millis - fixedRainArray[2]
+		except:
+			millis = 0
 
-	rain_amount = fixedRainArray[1]
-	millis = fixedRainArray[0]
+	print(max(millisAray), min(millisAray))
+	if max(millisAray) - min(millisAray) > 400:
+		millis = 0
+	#if millis is small, maybe there was an error, so wait a tenth of a second before doing the wind lookup
+	if millis<1000:
+		time.sleep(0.1) 
 	
 	#print("--rain--");
 	#print(fixedRainArray)
-	windArray = bus.read_i2c_block_data(i2c_address,1)#get wind info
-	
-	fixedWindArray = collapseDelimitedBytesIntoIntegers(windArray);
-	otherMillis = fixedWindArray[0]
-	
+	try:
+		windArray = bus.read_i2c_block_data(i2c_address,1)#get wind info
+		
+		fixedWindArray = collapseDelimitedBytesIntoIntegers(windArray);
+		otherMillis = fixedWindArray[0]
+		wind_increment = fixedWindArray[0] - fixedWindArray[2]
+	except:
+		otherMillis = 0
 	#we get millis from both rain and windspeed data, taken close to one another, 
 	#so if they are too far apart, one of them must've been garbled
 	print("millis check----")
@@ -109,10 +130,8 @@ while millis < 2:
 	if abs(millis - otherMillis) > 400:
 		millis = 0 #if so, set millis to zero so we don't exit this loop
 		
-	
-	rain_increment = millis - fixedRainArray[2]
-	#wind_speed = fixedWindArray[1] # fuck that
-	wind_increment = fixedWindArray[0] - fixedWindArray[2]
+ 
+
 	#print("--wind--");
 	#print(windArray)
 	#print(fixedWindArray)
