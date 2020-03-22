@@ -187,8 +187,10 @@ void requestEvent(){
     Wire.write("\t");
     val = rawToDirection(analogRead(0), angleCorrection);
     writeWireInt(val);
-  } else {
-   Wire.write("\t");
+   } else if(readMode == 10) { //just give me millis
+    writeWireInt(millis());
+   } else {
+    Wire.write("\t");
   }
 }
 
@@ -208,7 +210,7 @@ void receieveEvent() {
     if(byteCount ==0) {
       readMode = byteRead;
       command = byteRead;
-      Serial.println(command);
+      //Serial.println(command);
     } else {
       receivedByte = byteRead;
       //Serial.println("got more than a command");
@@ -226,14 +228,14 @@ void receieveEvent() {
     //Serial.print(receivedValue);
   }
   if(command == 7) { //have to do these here i guess
-   Serial.println("setting angle correction");
+   //Serial.println("setting angle correction");
    angleCorrection = receivedValue;
   } else if(command == 5) { //clear the recent gust storage
-    Serial.println("resetting wind count");
+    //Serial.println("resetting wind count");
     smallestWindIRQDelta = highLong;
     windClicks = 0;
   } else if(command == 6) { //clear the recent downpour storage
-    Serial.println("resetting rain counts");
+    //Serial.println("resetting rain counts");
     smallestRainIRQDelta = highLong;
     dailyRain = 0;
   }
@@ -248,7 +250,7 @@ int rawToDirection(int raw, int angleCorrection){
     out = 0;
   } else if(raw> 412 && raw < 423) {
     out = 22;
-  } else if(raw> 89 && raw < 95) {
+  } else if(raw> 92 && raw < 95) {
     out = 67;
   } else if(raw> 94 && raw < 125) {
     out = 90; //was 67
@@ -258,9 +260,11 @@ int rawToDirection(int raw, int angleCorrection){
     out = 180;
   } else if(raw> 250 && raw < 310) {
     out = 203;
+  } else if(raw> 70 && raw < 93) {
+    out = 110;
   } else if(raw> 940 && raw < 950) {
     out = 270;
-  } else if(raw> 460 && raw < 479) {
+  } else if(raw> 460 && raw < 485) {
     out = 45;
   } else if(raw> 180 && raw < 190) {
     out = 135; //old
