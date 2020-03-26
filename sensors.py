@@ -43,8 +43,32 @@ def collapseDelimitedBytesIntoIntegers(delimitedBytes):
 			outArray.append(thisInt)
 			thisInt = 0
 			currentByteArray = []
+			
+ 
 	return outArray
 
+def resetArduino():
+	millis = 0
+	extraTimeToSleep = 0.1
+	timeToSleep = 1.5
+	#gradually increases reset time by a tenth of a second until we get millis
+	while millis == 0:
+		print("about to reset Arduino, time to sleep: " + str(timeToSleep + extraTimeToSleep))
+		GPIO.setmode(GPIO.BCM)
+		GPIO.setup(18, GPIO.OUT)
+		GPIO.output(18, GPIO.HIGH)
+		GPIO.output(18, GPIO.LOW)
+		time.sleep(timeToSleep + extraTimeToSleep) 
+		GPIO.output(18, GPIO.HIGH)
+		time.sleep(timeToSleep + extraTimeToSleep)
+		try:
+			rawMillis = bus.read_i2c_block_data(i2c_address,10)
+			millis = intFromBytes(rawMillis)
+			print(millis)
+		except:
+			millis = 0
+		extraTimeToSleep += 0.1
+	
 #set the reset line to the arduino so it is not being reset
 GPIO.setwarnings(False) 
 GPIO.setmode(GPIO.BCM)
@@ -65,34 +89,43 @@ fail = False
 try:
 	bus.write_byte_data(i2c_address, 14, 17)
 except: 
-	fail = True
+	#fail = True
+	print("oopsie fail")
 
 wind_direction = 360
 loopTimes = 0
-while wind_direction == 360:
+while wind_direction > 359 or wind_direction == -1:
 	try:
-		rawWindDirection = bus.read_i2c_block_data(i2c_address,3)#get  wind direction
-		wind_direction = intFromBytes(rawWindDirection)
+		rawWindDirectionArray = bus.read_i2c_block_data(i2c_address,9)#get  wind direction
+		fixedWindDirectionArray = collapseDelimitedBytesIntoIntegers(rawWindDirectionArray)
+		print(fixedWindDirectionArray)
+		wind_direction = fixedWindDirectionArray[1];
+		wind_raw = fixedWindDirectionArray[0];
+		print("direction----")
+		print(wind_direction, wind_raw)
 	except:
 		wind_direction = -1
-		fail = True
+		print("wind direction fail")
+		#fail = True
 	loopTimes += 100000
 millis = 0
 escapeLoop = False
 
 while millis < 2  and not escapeLoop:
-	
-	try:
-		rawHumidityArray  = bus.read_i2c_block_data(i2c_address,8)#get humidity info
-		fixedHumidityArray = collapseDelimitedBytesIntoIntegers(rawHumidityArray);
-		#print("humidity----")
-		#print(fixedHumidityArray[0])
-		humidity = fixedHumidityArray[0]
-	except:
-		humidity  = -1
-		fail = True
-	#bus.read_i2c_block_data(i2c_address,6)#delete accumlated rain -- doesn't seem to work
-	#bus.read_i2c_block_data(i2c_address,5)#delete accumlated gust -- doesn't seem to work
+	humidity = -1
+	while humidity  < 1:
+		try:
+			rawHumidityArray  = bus.read_i2c_block_data(i2c_address,8)#get humidity info
+			fixedHumidityArray = collapseDelimitedBytesIntoIntegers(rawHumidityArray);
+			#print("humidity----")
+			#print(fixedHumidityArray[0])
+			humidity = fixedHumidityArray[0]
+		except:
+			humidity  = -1
+			print("humidity fail")
+			fail = True
+	#bus.read_i2c_block_data(i2c_address,6)#delete accumulated rain -- doesn't seem to work
+	#bus.read_i2c_block_data(i2c_address,5)#delete accumulated gust -- doesn't seem to work
 	
 	
 	#make six readings of rain and get the millis from them. if any are off
@@ -107,10 +140,12 @@ while millis < 2  and not escapeLoop:
 			rain_increment = millis - fixedRainArray[2]
 		except:
 			millis = 0
+			print("fail in rain sensor lookup")
 			fail = True
-
+	print("max -- min millis--")
 	print(max(millisAray), min(millisAray))
 	if max(millisAray) - min(millisAray) > 400:
+		print("millis range problem")
 		millis = 0
 	#if millis is small, maybe there was an error, so wait a tenth of a second before doing the wind lookup
 	if millis<1000:
@@ -132,8 +167,8 @@ while millis < 2  and not escapeLoop:
 	#so if they are too far apart, one of them must've been garbled
 	print("millis check----")
 	print(millis, otherMillis)
-	if abs(millis - otherMillis) > 400:
-		millis = 0 #if so, set millis to zero so we don't exit this loop
+	#if abs(millis - otherMillis) > 400:
+		#millis = 0 #if so, set millis to zero so we don't exit this loop
 		
 	#print("--wind--");
 	#print(windArray)
@@ -149,21 +184,19 @@ while millis < 2  and not escapeLoop:
 	wind_speed =  1.41/float(wind_increment/1000) 
 	#print(wind_speed)
 	if fail:
+		print("so fail")
 		millis = 0
 		#if you cannot reach the arduino, reset it
-		print("about to reset")
-		GPIO.setmode(GPIO.BCM)
-		GPIO.setup(18, GPIO.OUT)
-		GPIO.output(18, GPIO.HIGH)
-		GPIO.output(18, GPIO.LOW)
-		time.sleep(0.1) 
-		GPIO.output(18, GPIO.HIGH)
-		time.sleep(0.1)
-		escapeLoop = True
+		resetArduino()
+		fail = False
 	loopTimes += 1
 	
 if millis > 0 and not escapeLoop:
 	writeDataRecord(temperature, pressure, decimalHumidity, wind_direction, rain_amount, wind_speed, wind_increment, rain_increment, millis, loopTimes)
+	
+	
+
+		
 
 
 
