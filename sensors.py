@@ -94,7 +94,7 @@ except:
 
 wind_direction = 360
 loopTimes = 0
-while wind_direction > 359 or wind_direction == -1:
+while (wind_direction > 359 or wind_direction == -1)  and loopTimes < 9900000:
 	try:
 		rawWindDirectionArray = bus.read_i2c_block_data(i2c_address,9)#get  wind direction
 		fixedWindDirectionArray = collapseDelimitedBytesIntoIntegers(rawWindDirectionArray)
@@ -103,10 +103,11 @@ while wind_direction > 359 or wind_direction == -1:
 		wind_raw = fixedWindDirectionArray[0];
 		print("direction----")
 		print(wind_direction, wind_raw)
+		fail = False
 	except:
 		wind_direction = -1
 		print("wind direction fail")
-		#fail = True
+		fail = True
 	loopTimes += 100000
 millis = 0
 escapeLoop = False
@@ -178,10 +179,14 @@ while millis < 2  and not escapeLoop:
 	#print("***********")
 	if wind_increment == 0:
 		wind_increment = 0.001
-	
+
 	decimalHumidity = float(humidity/100)
 	
-	wind_speed =  1.41/float(wind_increment/1000) 
+	wind_speed =  1.41/float(wind_increment/1000)
+	#dont store windspeed glitches
+	if wind_increment < 10:
+		wind_increment = 0
+		wind_speed = 0
 	#print(wind_speed)
 	if fail:
 		print("so fail")
