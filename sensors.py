@@ -52,7 +52,8 @@ def resetArduino():
 	extraTimeToSleep = 0.1
 	timeToSleep = 1.5
 	#gradually increases reset time by a tenth of a second until we get millis
-	while millis == 0:
+	timesThrough = 0
+	while millis == 0  and timesThrough < 20000:
 		print("about to reset Arduino, time to sleep: " + str(timeToSleep + extraTimeToSleep))
 		GPIO.setmode(GPIO.BCM)
 		GPIO.setup(18, GPIO.OUT)
@@ -68,6 +69,7 @@ def resetArduino():
 		except:
 			millis = 0
 		extraTimeToSleep += 0.1
+		timesThrough = timesThrough+1
 	
 #set the reset line to the arduino so it is not being reset
 GPIO.setwarnings(False) 
@@ -114,7 +116,8 @@ escapeLoop = False
 
 while millis < 2  and not escapeLoop:
 	humidity = -1
-	while humidity  < 1:
+	timesThrough = 0
+	while humidity  < 1  and timesThrough<2000:
 		try:
 			rawHumidityArray  = bus.read_i2c_block_data(i2c_address,8)#get humidity info
 			fixedHumidityArray = collapseDelimitedBytesIntoIntegers(rawHumidityArray);
@@ -125,6 +128,7 @@ while millis < 2  and not escapeLoop:
 			humidity  = -1
 			print("humidity fail")
 			fail = True
+		timesThrough = timesThrough+1
 	#bus.read_i2c_block_data(i2c_address,6)#delete accumulated rain -- doesn't seem to work
 	#bus.read_i2c_block_data(i2c_address,5)#delete accumulated gust -- doesn't seem to work
 	
