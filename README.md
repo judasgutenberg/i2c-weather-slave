@@ -14,4 +14,6 @@ sensors.py.  In this version, data is converted from bytes into decimals and sav
 To buy these sensors, go here:
 https://www.sparkfun.com/products/15901
 
+I referred to this repo here: https://stackoverflow.com/questions/41005114/raspberry-pi-as-slave-in-i2c-and-arduino-as-master/64009386#64009386.
+
 
